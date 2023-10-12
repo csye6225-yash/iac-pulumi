@@ -7,8 +7,9 @@ const region = new pulumi.Config("aws").require("region");
 // Function to get available AWS availability zones
 const getAvailableAvailabilityZones = async () => {
     const zones = await aws.getAvailabilityZones({ state: "available" });
-    console.log(zones.names);
-    return zones.names.slice(0, 3);
+    const i = Math.min(zones.names.length, 3);
+    console.log('zones now: ', i);
+    return zones.names.slice(0, i);
 };
 
 // Creating Virtual Private Cloud (VPC)
