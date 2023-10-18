@@ -7,4 +7,4 @@ config:
   my_subnetMask:subnetMask: 24
   my_portNo:portNo: 8080
   my_amiID:amiId: "ami-0abc9ba79493686d6"
-  my_keyName:keyName: "webapp_keypair"
+  my_keyName:keyName: "webapp_keypair_demo"
