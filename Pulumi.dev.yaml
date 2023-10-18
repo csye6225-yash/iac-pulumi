@@ -6,5 +6,5 @@ config:
   my_vpc:cidrBlock: "10.0.0.0/16"
   my_subnetMask:subnetMask: 24
   my_portNo:portNo: 8080
-  my_amiID:amiId: "ami-0abc9ba79493686d6"
+  my_amiID:amiId: "ami-09cd876f61ce4902f"
   my_keyName:keyName: "webapp_keypair"
