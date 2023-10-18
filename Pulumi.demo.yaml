@@ -1,6 +1,10 @@
 encryptionsalt: v1:xoteB70AKRY=:v1:YCv2818xn7xYnygl:KAforwdRpIEcV6UdYDU+abykVcVEmQ==
 config:
   aws:profile: demo
-  aws:region: us-west-1
+  aws:region: us-east-1
   my_publicRouteTable:cidrBlock: "0.0.0.0/0"
   my_vpc:cidrBlock: "10.0.0.0/16"
+  my_subnetMask:subnetMask: 24
+  my_portNo:portNo: 8080
+  my_amiID:amiId: "ami-0abc9ba79493686d6"
+  my_keyName:keyName: "webapp_keypair"

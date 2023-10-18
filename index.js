@@ -3,6 +3,10 @@ const aws = require("@pulumi/aws");
 const vpcCIDRBlock = new pulumi.Config("my_vpc").require("cidrBlock");
 const publicRouteTableCIDRBlock = new pulumi.Config("my_publicRouteTable").require("cidrBlock");
 const region = new pulumi.Config("aws").require("region");
+const mysubnetMask = new pulumi.Config("my_subnetMask").require("subnetMask")
+const myportno = new pulumi.Config("my_portNo").require("portNo")
+const myamiid = new pulumi.Config("my_amiID").require("amiId")
+const mykeyname = new pulumi.Config("my_keyName").require("keyName")
 
 // Function to get available AWS availability zones
 const getAvailableAvailabilityZones = async () => {
@@ -15,7 +19,7 @@ const getAvailableAvailabilityZones = async () => {
 // Function to calculate CIDR block for subnets
 
 const calculateSubnetCIDRBlock = (baseCIDRBlock, index) => {
-    const subnetMask = 24; // Adjust the subnet mask as needed
+    const subnetMask = mysubnetMask;
     const baseCIDRParts = baseCIDRBlock.split("/");
     const networkAddress = baseCIDRParts[0].split(".");
     const newSubnetAddress = `${networkAddress[0]}.${networkAddress[1]}.${index}.${networkAddress[2]}`;
@@ -75,6 +79,7 @@ const createSubnets = async () => {
             vpcId: my_vpc.id,
             availabilityZone: availabilityZones[i],
             cidrBlock: publicSubnetCIDRBlock, 
+            mapPublicIpOnLaunch: true, // Enable auto-assign public IPv4 address
             tags: {
                 Name: `my_publicSubnet${i + 1}`,
             },
@@ -92,6 +97,59 @@ const createSubnets = async () => {
         });
         my_privateSubnets.push(privateSubnet);
     }
+
+    // EC2 Security Group for Web Applications
+    const appSecurityGroup = new aws.ec2.SecurityGroup("appSecurityGroup", {
+        vpcId: my_vpc.id,
+        ingress: [
+            {
+                fromPort: 22,
+                toPort: 22,
+                protocol: "tcp",
+                cidrBlocks: ["0.0.0.0/0"], // Allow SSH from anywhere
+            },
+            {
+                fromPort: 80,
+                toPort: 80,
+                protocol: "tcp",
+                cidrBlocks: ["0.0.0.0/0"], // Allow HTTP from anywhere
+            },
+            {
+                fromPort: 443,
+                toPort: 443,
+                protocol: "tcp",
+                cidrBlocks: ["0.0.0.0/0"], // Allow HTTPS from anywhere
+            },
+            // rule for my application port 
+            {
+                fromPort: myportno,
+                toPort: myportno,
+                protocol: "tcp",
+                cidrBlocks: ["0.0.0.0/0"],
+            }
+        ],
+        tags: {
+            Name: "appSecurityGroup",
+        },
+    });
+    
+    // // Create an EC2 instance in the first public subnet
+    // const ec2Instance = new aws.ec2.Instance("ec2Instance", {
+    //     instanceType: "t2.micro", // Set the desired instance type
+    //     ami: "ami-01fba9a558f9152e1", // Replace with your custom AMI ID
+    //     vpcSecurityGroupIds: [appSecurityGroup.id], // Assuming you have defined appSecurityGroup
+    //     subnetId: my_publicSubnets[0].id, // Choose the first public subnet
+    //     //vpcId : my_vpc.id,
+    //     keyName: "webapp_keypair",
+    //     rootBlockDevice: {
+    //         volumeSize: 25,
+    //         volumeType: "gp2",
+    //     },
+    //     tags: {
+    //         Name: "EC2Instance",
+    //     },
+    // });
+
 
     for (let i = 0; i < my_publicSubnets.length; i++) {
         new aws.ec2.RouteTableAssociation(`my_publicRouteTableAssociation-${i}`, {
@@ -114,8 +172,24 @@ const createSubnets = async () => {
             routeTableId: my_privateRouteTable.id,
         });
     }
-};
 
+    // EC2 Instance
+    const ec2Instance = new aws.ec2.Instance("ec2Instance", {
+        instanceType: "t2.micro",
+        ami: myamiid,
+        vpcSecurityGroupIds: [appSecurityGroup.id],
+        subnetId: my_publicSubnets[0].id,
+        vpcId: my_vpc.id,
+        keyName: mykeyname,
+        rootBlockDevice: {
+            volumeSize: 25,
+            volumeType: "gp2",
+        },
+        tags: {
+            Name: "EC2Instance",
+        },
+    });
+};
 
 //function to create subnets
 createSubnets();
