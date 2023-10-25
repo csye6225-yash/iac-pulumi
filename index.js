@@ -7,6 +7,9 @@ const mysubnetMask = new pulumi.Config("my_subnetMask").require("subnetMask")
 const myportno = new pulumi.Config("my_portNo").require("portNo")
 const myamiid = new pulumi.Config("my_amiID").require("amiId")
 const mykeyname = new pulumi.Config("my_keyName").require("keyName")
+const dbName = new pulumi.Config("database").require("dbName");
+const dbUsername = new pulumi.Config("database").require("dbUsername");
+const dbPassword = new pulumi.Config("database").require("dbPassword");
 
 // Function to get available AWS availability zones
 const getAvailableAvailabilityZones = async () => {
@@ -128,6 +131,14 @@ const createSubnets = async () => {
                 cidrBlocks: ["0.0.0.0/0"],
             }
         ],
+        egress: [
+            {
+                protocol: "-1", // -1 means all protocols
+                fromPort: 0,
+                toPort: 0, // Set both fromPort and toPort to 0 to allow all ports
+                cidrBlocks: ["0.0.0.0/0"],
+            },
+        ],
         tags: {
             Name: "appSecurityGroup",
         },
@@ -173,6 +184,108 @@ const createSubnets = async () => {
         });
     }
 
+    //---------- RDS Config
+
+    const databaseSecurityGroup = new aws.ec2.SecurityGroup("databaseSecurityGroup", {
+        vpcId: my_vpc.id,
+        ingress: [
+            // Add ingress rule for your application port
+            {
+                fromPort: 3306,
+                toPort: 3306,
+                protocol: "tcp",
+                securityGroups: [appSecurityGroup.id]
+            },
+        ],
+        egress: [
+             // Add egress rule for your application port
+             {
+                fromPort: 3306,
+                toPort: 3306,
+                protocol: "tcp",
+                securityGroups: [appSecurityGroup.id]
+            },
+        ]
+    });
+    await databaseSecurityGroup.id; 
+
+    pulumi.log.info(
+        pulumi.interpolate`Database Security Group VPC ID: ${databaseSecurityGroup.id}`
+    );
+
+    // Create an RDS parameter group
+
+    const rdsParameterGroup = new aws.rds.ParameterGroup("myRdsParameterGroup", {
+        vpcId: my_vpc.id,
+        family: "mariadb10.6", // Change this to match your database engine and version
+        name: "my-rds-parameter-group",
+        parameters: [
+            {
+                name: "character_set_server",
+                value: "utf8",
+            },
+            {
+                name: "collation_server",
+                value: "utf8_general_ci",
+            },
+        ],
+        tags: {
+            Name: "myRdsParameterGroup",
+        },
+    });
+
+    // Create a DB subnet group
+    const dbSubnetGroup = new aws.rds.SubnetGroup("myDbSubnetGroup", {
+        subnetIds: [my_privateSubnets[0].id, my_privateSubnets[1].id],
+        name: "my-db-subnet-group",
+        tags: {
+            Name: "myDbSubnetGroup",
+        },
+    });
+
+    // Create an RDS instance
+
+    const rdsInstance = new aws.rds.Instance("myRDSInstance", {
+        vpcId: my_vpc.id,
+        vpcSecurityGroupIds: [databaseSecurityGroup.id],
+        dbSubnetGroupName: dbSubnetGroup.name,
+        engine: "mariadb",
+        instanceClass: "db.t2.micro",
+        multiAz: false,
+        identifier: "csye6225",
+        dbName: dbName,
+        username: dbUsername,
+        password: dbPassword,
+        allocatedStorage: 20,
+        maxAllocatedStorage: 20,
+        skipFinalSnapshot: true,
+        publiclyAccessible: false, // Set to false to restrict access to the internet
+        parameterGroupName: rdsParameterGroup.name,
+        tags: {
+            Name: "myRDSInstance",
+        },
+    });
+    pulumi.log.info(
+        pulumi.interpolate`RDS instance id: ${rdsInstance.id}`
+    );
+
+    //----------- user data config
+
+    // Specify the database configuration
+    const dbHostname = pulumi.interpolate`${rdsInstance.address}`;
+
+    // User data script to configure the EC2 instance
+    const userDataScript = pulumi.interpolate`#!/bin/bash
+    echo "MYSQL_DATABASE=${dbName}" >> /home/admin/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_USER=${dbUsername}" >> /home/admin/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_PASSWORD=${dbPassword}" >> /home/admin/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_HOSTNAME=${dbHostname}" >> /home/admin/Yash_Bhatia_002791499_03/.env
+    `;
+    pulumi.log.info(
+        pulumi.interpolate`DB data: dbHostname, userDataScript - ${dbHostname}, ${userDataScript}`
+    );
+
+
     // EC2 Instance
     const ec2Instance = new aws.ec2.Instance("ec2Instance", {
         instanceType: "t2.micro",
@@ -185,6 +298,8 @@ const createSubnets = async () => {
             volumeSize: 25,
             volumeType: "gp2",
         },
+        protectFromTermination: false,
+        userData: userDataScript, // Attach the user data script
         tags: {
             Name: "EC2Instance",
         },
