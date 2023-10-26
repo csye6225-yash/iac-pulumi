@@ -276,10 +276,10 @@ const createSubnets = async () => {
 
     // User data script to configure the EC2 instance
     const userDataScript = pulumi.interpolate`#!/bin/bash
-    echo "MYSQL_DATABASE=${dbName}" >> /home/admin/Yash_Bhatia_002791499_03/.env
-    echo "MYSQL_USER=${dbUsername}" >> /home/admin/Yash_Bhatia_002791499_03/.env
-    echo "MYSQL_PASSWORD=${dbPassword}" >> /home/admin/Yash_Bhatia_002791499_03/.env
-    echo "MYSQL_HOSTNAME=${dbHostname}" >> /home/admin/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_DATABASE=${dbName}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_USER=${dbUsername}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_PASSWORD=${dbPassword}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
+    echo "MYSQL_HOSTNAME=${dbHostname}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
     `;
     pulumi.log.info(
         pulumi.interpolate`DB data: dbHostname, userDataScript - ${dbHostname}, ${userDataScript}`

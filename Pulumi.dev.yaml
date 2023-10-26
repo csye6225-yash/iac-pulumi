@@ -6,7 +6,7 @@ config:
   my_vpc:cidrBlock: "10.0.0.0/16"
   my_subnetMask:subnetMask: 24
   my_portNo:portNo: 8080
-  my_amiID:amiId: "ami-02a8733c07f42d609"
+  my_amiID:amiId: "ami-0dd66e38f454425f1"
   my_keyName:keyName: "webapp_keypair"
   database:dbName: "database_development"
   database:dbUsername: "root"
