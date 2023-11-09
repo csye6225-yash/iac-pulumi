@@ -10,6 +10,7 @@ const mykeyname = new pulumi.Config("my_keyName").require("keyName")
 const dbName = new pulumi.Config("database").require("dbName");
 const dbUsername = new pulumi.Config("database").require("dbUsername");
 const dbPassword = new pulumi.Config("database").require("dbPassword");
+const domainName = new pulumi.Config("my_domainName").require("domainName");
 
 // Function to get available AWS availability zones
 const getAvailableAvailabilityZones = async () => {
@@ -280,11 +281,66 @@ const createSubnets = async () => {
     echo "MYSQL_USER=${dbUsername}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
     echo "MYSQL_PASSWORD=${dbPassword}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
     echo "MYSQL_HOSTNAME=${dbHostname}" >> /opt/csye6225/Yash_Bhatia_002791499_03/.env
+    # Start the CloudWatch Agent and enable it to start on boot
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/csye6225/Yash_Bhatia_002791499_03/amazon-cloudwatch-agent.json
+    sudo systemctl enable amazon-cloudwatch-agent
+    sudo systemctl start amazon-cloudwatch-agent
     `;
     pulumi.log.info(
         pulumi.interpolate`DB data: dbHostname, userDataScript - ${dbHostname}, ${userDataScript}`
     );
 
+
+    
+
+    // Create IAM Role for CloudWatch Agent
+    const ec2CloudWatch = new aws.iam.Role("ec2CloudWatch", {
+        assumeRolePolicy: JSON.stringify({
+            Version: "2012-10-17",
+            Statement: [{
+                Action: "sts:AssumeRole",
+                Effect: "Allow",
+                Principal: {
+                    Service: "ec2.amazonaws.com",
+                },
+            }],
+        }),
+    });
+    
+    // Attach AmazonCloudWatchAgentServerPolicy to the IAM role
+    const cloudWatchAgentPolicyAttachment = new aws.iam.RolePolicyAttachment("CloudWatchAgentPolicyAttachment", {
+        role: ec2CloudWatch,
+        policyArn: "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    });
+    
+    let instanceProfile = new aws.iam.InstanceProfile("myInstanceProfile", {
+        role: ec2CloudWatch.name
+    });
+
+    // Function to create Route53 DNS A record
+    const createDnsARecord = async (domainName, ec2Instance) => {
+        const hostedZone = await aws.route53.getZone({
+            name: domainName,
+        });
+    
+        if (hostedZone) {
+            const recordName = domainName;
+            const recordType = "A";
+            const recordTtl = 60;
+            const recordSet = new aws.route53.Record(`dnsARecord-${recordName}`, {
+                name: recordName,
+                type: recordType,
+                zoneId: hostedZone.zoneId,
+                records: [ec2Instance.publicIp],
+                ttl: recordTtl,
+                allowOverwrite: true,
+            });
+        }
+        else
+        {
+            console.error(`Zone for domain '${domainName}' not found.`);
+        }
+    };
 
     // EC2 Instance
     const ec2Instance = new aws.ec2.Instance("ec2Instance", {
@@ -303,7 +359,11 @@ const createSubnets = async () => {
         tags: {
             Name: "EC2Instance",
         },
+        iamInstanceProfile: instanceProfile.name,
     });
+    
+    // Call the function to create DNS A record
+    createDnsARecord(domainName, ec2Instance);
 };
 
 //function to create subnets
