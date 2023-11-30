@@ -6,7 +6,7 @@ config:
   database:dbPassword: "yashhh2809"
   database:dbUsername: "root"
   gcp:project: csye6225-demo-406023
-  my_amiID:amiId: "ami-00e809edd0475d86a"
+  my_amiID:amiId: "ami-0f5686d56a07cca94"
   my_domainName:domainName: "demo.bhatiayash.me"
   my_keyName:keyName: "webapp_keypair_demo"
   my_portNo:portNo: "8080"
