@@ -660,13 +660,25 @@ const createSubnets = async () => {
         }
     });
 
+    const certificate = await aws.acm.getCertificate({
+        domain: domainName,
+        mostRecent: true,
+        statuses: ["ISSUED"],
+    });
+
+    const certificateArn = pulumi.interpolate`${certificate.arn}`;
+
     const listener = new aws.lb.Listener("myListener", {
         loadBalancerArn: loadBalancer.arn,
-        port: 80,
+        //port: 80,
+        port: 443,
+        protocol: "HTTPS",
         defaultActions: [{
             type: "forward",
             targetGroupArn: targetGroup.arn
         }],
+        sslPolicy: "ELBSecurityPolicy-2016-08",
+        certificateArn: certificateArn,
     });
     
 
