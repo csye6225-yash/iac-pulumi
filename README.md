@@ -1,6 +1,6 @@
 # iac-pulumi
 
-1. Download AWS CLI
+1. Download AWS CL
 
 2. Install pulumi
 
